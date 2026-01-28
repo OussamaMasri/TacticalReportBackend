@@ -2,14 +2,7 @@
   "functions": {
     "api/index.py": {
       "runtime": "python3.11",
-      "includeFiles": [
-        "api.py",
-        "data_loader.py",
-        "models.py",
-        "scoring.py",
-        "settings.py",
-        "data/**"
-      ]
+      "includeFiles": "data/**"
     }
   }
 }
