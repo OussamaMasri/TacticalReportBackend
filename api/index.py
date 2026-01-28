@@ -1,6 +1,12 @@
 from mangum import Mangum
+import sys
+from pathlib import Path
 
-# For Vercel serverless: project root is `backend/`, so main.py is sibling of api/
-from main import app  # type: ignore  # noqa: E402
+# Ensure the repository root is on sys.path so we can import the FastAPI app
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from api import app  # type: ignore  # noqa: E402
 
 handler = Mangum(app, lifespan="off")

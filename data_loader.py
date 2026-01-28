@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-from .models import Report, User
-from .settings import ENGAGEMENTS_PATH, REPORTS_PATH, USERS_PATH
+from models import Report, User
+from settings import ENGAGEMENTS_PATH, REPORTS_PATH, USERS_PATH
 
 
 def load_json(path: Path):

@@ -1,17 +1,9 @@
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from .data_loader import reports, users
-from .models import FeedResponse, Report, User
-from .scoring import build_feed
+from data_loader import reports, users
+from models import FeedResponse, Report, User
+from scoring import build_feed
 
 app = FastAPI(title="Tactical Report Feed API")
 

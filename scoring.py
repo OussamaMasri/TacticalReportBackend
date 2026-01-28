@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
-from .data_loader import engagements, reports, users
-from .models import FeedItem, Report, User
-from .settings import WEIGHTS
+from data_loader import engagements, reports, users
+from models import FeedItem, Report, User
+from settings import WEIGHTS
 
 UTC = timezone.utc
 
