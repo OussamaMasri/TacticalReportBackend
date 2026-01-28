@@ -1,4 +1,3 @@
-from mangum import Mangum
 import sys
 from pathlib import Path
 
@@ -8,5 +7,3 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from api import app  # type: ignore  # noqa: E402
-
-handler = Mangum(app, lifespan="off")
