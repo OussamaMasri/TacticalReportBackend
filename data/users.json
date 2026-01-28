@@ -1,0 +1,37 @@
+[
+  {
+    "id": "u1",
+    "name": "Noura Al-Saud",
+    "role": "Defense analyst",
+    "focus_categories": ["Defense"],
+    "focus_tags": ["UAV", "air-defense", "maritime"]
+  },
+  {
+    "id": "u2",
+    "name": "Omar El-Masry",
+    "role": "Energy investment lead",
+    "focus_categories": ["Energy"],
+    "focus_tags": ["hydrogen", "LNG", "grid"]
+  },
+  {
+    "id": "u3",
+    "name": "Layla Haddad",
+    "role": "Political risk advisor",
+    "focus_categories": ["Politics", "Energy"],
+    "focus_tags": ["policy", "governance", "AI"]
+  },
+  {
+    "id": "u4",
+    "name": "Karim Ben Youssef",
+    "role": "North Africa portfolio",
+    "focus_categories": ["Defense", "Energy"],
+    "focus_tags": ["Morocco", "Algeria", "grid"]
+  },
+  {
+    "id": "u5",
+    "name": "Sara Al-Kuwari",
+    "role": "Gulf macro watcher",
+    "focus_categories": ["Politics", "Energy"],
+    "focus_tags": ["Qatar", "Saudi", "policy"]
+  }
+]
