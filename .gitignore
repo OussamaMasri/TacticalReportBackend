@@ -12,10 +12,6 @@ venv/
 env/
 .env/
 
-# Databases
-*.db
-*.sqlite3
-
 # Node.js
 node_modules/
 .next/
