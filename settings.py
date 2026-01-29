@@ -1,10 +1,12 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=ROOT_DIR / ".env", override=False)
+
 DATA_DIR = ROOT_DIR / "data"
-REPORTS_PATH = DATA_DIR / "reports.json"
-USERS_PATH = DATA_DIR / "users.json"
-ENGAGEMENTS_PATH = DATA_DIR / "engagements.json"
+DB_PATH = DATA_DIR / "app.db"
 
 WEIGHTS = {
     "purchase_cat": 10.0,

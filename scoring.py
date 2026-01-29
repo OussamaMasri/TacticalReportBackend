@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import math
+import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
-from data_loader import engagements, reports, users
+from data_loader import engagements, get_ai_insight, reports, set_ai_insight, users
 from models import FeedItem, Report, User
 from settings import WEIGHTS
+
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
 
 UTC = timezone.utc
 
@@ -133,20 +139,61 @@ def compute_reason(report: Report, signals: Dict[str, float], profile: Profile) 
 
 
 def why_it_matters(report: Report) -> str:
-    tag_line = ""
-    if "UAV" in report.tags or "air-defense" in report.tags:
-        tag_line = "air and counter-UAS posture"
-    elif "hydrogen" in report.tags or "LNG" in report.tags:
-        tag_line = "energy export positioning"
-    elif "policy" in report.tags or "governance" in report.tags:
-        tag_line = "regulatory stability"
-    elif "grid" in report.tags or "storage" in report.tags:
-        tag_line = "infrastructure resilience"
-    elif "elections" in report.tags:
-        tag_line = "political timing and risk"
-    if tag_line:
-        return f"This shapes {tag_line} for regional stakeholders."
-    return "Brief insight on strategic shifts affecting the region."
+    """
+    Generate a short, stakeholder-focused sentence using Gemini (via OpenAI compatibility).
+    Saves and retrieves from SQLite to avoid redundant API calls.
+    """
+
+    cached = get_ai_insight(report.id)
+    if cached:
+        print(f"why_it_matters: db hit for report_id={report.id}")
+        return cached
+
+    if not OpenAI:
+        print("why_it_matters: openai SDK not available")
+        return ""
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    base_url = os.getenv("GEMINI_BASE_URL")
+    model_name = os.getenv("GEMINI_MODEL")
+
+    if not api_key:
+        print("why_it_matters: GEMINI_API_KEY missing")
+        return ""
+
+    try:
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        
+        prompt = (
+            "Write one concise sentence (max 28 words) on why this report "
+            "matters for regional stakeholders. Avoid hype, focus on impact.\n"
+            f"Title: {report.title}\n"
+            f"Category: {report.category}\n"
+            f"Tags: {', '.join(report.tags)}\n"
+            f"Published at: {report.published_at}\n"
+            "Respond with only the sentence."
+        )
+        
+        print(f"why_it_matters: requesting model='{model_name}' at {base_url}")
+        
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+        )
+        
+        text = (response.choices[0].message.content or "").strip()
+        
+        if not text:
+            print("why_it_matters: empty response text from AI")
+        else:
+            print(f"why_it_matters: got response '{text[:120]}'")
+            set_ai_insight(report.id, text)
+        return text or ""
+    except Exception as exc:
+        print(f"why_it_matters: generation failed: {exc!r}")
+        return ""
 
 
 def score_report(report: Report, profile: Profile) -> Tuple[float, Dict[str, float]]:
