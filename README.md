@@ -1,73 +1,203 @@
 # Tactical Report Feed Backend
 
-Backend service for the Tactical Report multi-signal, personalized intelligence feed. It scores reports for each user using historical engagements, stated interests, publication recency, and a short LLM-generated "why it matters" blurb with caching.
+> **Multi-signal personalized intelligence feed** — Backend solution for the Tactical Report Senior Platform Engineer take-home assignment.
 
-## How the implementation meets the assignment
-- Multi-signal ranking: `scoring.py` builds per-user profiles from purchases, views (with dwell-time bonus), campaign interactions, bookmarks, and stated focus. Each action has explicit weights in `settings.py`.
-- Recency-aware: `recency_decay` applies half-life decay per signal and per-publication to surface timely items.
-- Explainable results: `compute_reason` assembles a human-readable reason for every feed item (category/tag affinity, prior views, bookmarks, campaign actions, or popularity fallback).
-- AI "why it matters": `why_it_matters` fetches a 1-sentence impact summary from Gemini (OpenAI-compatible SDK) and caches it in SQLite (`ai_insights`) to avoid repeated calls.
-- Cold start protection: users start with category/tag interest seeded from their `focus_categories`/`focus_tags`.
-- Production-ready API: FastAPI app with Pydantic models, CORS open for quick testing, and pagination/filtering on the feed.
+**Live Demo:** [https://tactical-report-frontend.vercel.app](https://tactical-report-frontend.vercel.app)
 
-## Repository layout
-- `api.py` — FastAPI routes (`/api/feed`, `/api/reports`, `/api/users`) and CORS.
-- `api/index.py` — Vercel entrypoint that imports the same FastAPI app.
-- `scoring.py` — Profile building, signal weights, recency decay, scoring, reasons, popularity backstop, and AI summary with SQLite cache.
-- `data_loader.py` — Ensures SQLite schema, loads reports/users/engagements/AI cache into memory, provides getters/setters for `ai_insights`.
-- `models.py` — Pydantic request/response schemas (FeedItem includes score, reason, signals, why_it_matters).
-- `settings.py` — Paths, dotenv load, and tunable weights.
-- `data/app.db` — SQLite database seeded with reports, users, engagements, and AI cache table.
-- `main.py` — Local dev entry (uvicorn reload).
-- `vercel.json` — Serverless configuration to deploy `api/index.py` on Vercel.
+---
 
-## Personalization details
-- Signal weights (see `settings.py`): purchases carry the most weight; views include a dwell-time bonus; campaign clicks/opens and bookmarks add smaller boosts; tag matches get an extra fixed bump; focus categories/tags seed initial interest.
-- Recency decay: exponential half-life per signal type (e.g., purchases 90d, views 60d, campaigns 45d, bookmarks 90d) plus publication recency (120d) folded into the final score.
-- Popularity fallback: light popularity term prevents empty feeds for sparse users.
-- Why/Reason: `compute_reason` builds a transparent sentence, while `why_it_matters` adds the optional AI-generated impact sentence (skips if no API key or SDK).
+## Problem Statement
 
-## API
-- `GET /api/feed`
-  - Query params: `user_id` (required), `page` (default 1), `page_size` (default 10, max 50), `category` (optional filter).
-  - Response: `FeedResponse` with `items[]` containing `score`, `reason`, `signals`, and `why_it_matters`.
-- `GET /api/reports` — All reports.
-- `GET /api/users` — All users.
+**The Challenge:** Build a personalized intelligence feed system that combines multiple user engagement signals (purchases, views, campaigns, bookmarks) to deliver relevant content recommendations.
 
-Example:
-```
-curl "http://localhost:8000/api/feed?user_id=u1&page=1&page_size=10"
-```
+**Requirements:**
+- Multi-signal ranking with weighted scoring
+- Time-decay (recent actions matter more)
+- Explainability (transparent "why recommended" reasoning)
+- Cold-start handling for new users
+- Pagination and filtering
+- AI-powered insights
+- Production deployment
 
-## Running locally
-Prereqs: Python 3.9+, SQLite (bundled), optional Gemini API key for AI blurbs.
+This backend implements a recommendation engine that learns from user behavior to surface the most relevant intelligence reports for each individual.
 
-1) Install deps  
+---
+
+## Solution Overview
+
+A **FastAPI-based personalization engine** featuring:
+
+- **Multi-Signal Scoring** — Combines 5 engagement types: purchases (10×), views (4×), bookmarks (2.5×), campaign clicks (2×), and stated interests
+- **Time Decay** — Exponential half-life decay ensures recent actions carry more weight than older ones
+- **Explainable AI** — Every recommendation includes a human-readable reason ("Because you engage with Technology content...")
+- **AI Summaries** — Google Gemini generates "why it matters" impact statements, cached in SQLite to minimize API costs
+- **Cold Start Handling** — New users without history receive recommendations based on their stated focus areas
+- **Production Ready** — Deployed on Vercel with CORS enabled, pagination, error handling, and API documentation  
+
+---
+
+## Quick Start
+
+### Local Development
+
 ```bash
+# 1. Install dependencies
 pip install -r requirements.txt
+
+# 2. (Optional) Create .env file for AI summaries
+# Copy the example below and add your Gemini API key
+
+# 3. Run the server
+python main.py
 ```
 
-2) Configure env (optional but recommended for AI summaries)  
-```
-GEMINI_API_KEY=your_api_key
+**`.env` example (optional for AI features):**
+```env
+GEMINI_API_KEY=your_api_key_here
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 GEMINI_MODEL=gemini-3-flash-preview
 ```
 
-3) Start the API  
-```bash
-python main.py
-# or: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+**Access API at:** `http://localhost:8000`
+
+**API Docs:** `http://localhost:8000/docs`
+
+---
+
+## How It Works
+
+### 1. User Profile Building
+
+The system analyzes each user's engagement history to build an interest profile:
+
+```python
+Profile = {
+  category_interest: {
+    "Technology": 15.2,  # High interest (purchases + views)
+    "Finance": 8.4,      # Medium interest (views + bookmarks)
+    "Healthcare": 3.0    # Low interest (stated focus only)
+  },
+  tag_interest: {
+    "AI": 12.8,
+    "Blockchain": 5.2,
+    "Crypto": 4.1
+  }
+}
 ```
 
-The database schema is created automatically on startup, and data is loaded from `data/app.db`.
+**Signal Weights:**
+| Signal | Category Weight | Tag Weight | Half-life |
+|--------|----------------|------------|-----------|
+| Purchase | 10.0 | 6.0 | 90 days |
+| View (150+ sec) | 4.0 + bonus | 2.5 | 60 days |
+| Bookmark | 2.5 | 1.8 | 90 days |
+| Campaign Click | 2.0 | 1.0 | 45 days |
+| Campaign Open | 1.0 | 0.5 | 45 days |
+| Stated Focus | 3.0 | 2.0 | no decay |
 
-## Deployment
-- Serverless target: Vercel Python with `api/index.py` as the entry and `vercel.json` rewrite for `/api/*`.
-- Set env vars in the Vercel dashboard (`GEMINI_API_KEY`, `GEMINI_BASE_URL`, `GEMINI_MODEL`).
-- Live deployment URL: `https://tactical-report-backend.vercel.app/`.
+### 2. Report Scoring
 
-## Future improvements
+For each candidate report (excluding already purchased):
+
+```
+score = (category_match + tag_matches + direct_signals) × (1 + 0.5 × recency)
+        + 0.5 × recency_boost
+        + 0.2 × popularity_fallback
+```
+
+**Example:**
+```json
+{
+  "id": "r123",
+  "title": "AI Regulation Impact on Tech Platforms",
+  "category": "Technology",
+  "tags": ["AI", "Regulation"],
+  "score": 42.5,
+  "signals": {
+    "category_match": 15.2,
+    "tag_match": 12.8,
+    "recency_boost": 8.3,
+    "popularity": 2.1
+  }
+}
+```
+
+### 3. AI Enhancement
+
+Gemini generates a 1-sentence impact summary per report:
+
+```
+"AI regulation threatens platform revenue models and accelerates compliance costs."
+```
+
+**Smart Caching:** Results stored in SQLite — API only called once per report.
+
+---
+
+## API Reference
+
+### `GET /api/feed`
+
+**Description:** Get personalized feed for a user
+
+**Query Parameters:**
+- `user_id` (required) — User identifier (e.g., `u1`)
+- `page` (optional, default: 1) — Page number
+- `page_size` (optional, default: 10, max: 50) — Items per page
+- `category` (optional) — Filter by category
+
+**Response:**
+```json
+{
+  "user_id": "u1",
+  "page": 1,
+  "page_size": 10,
+  "total": 245,
+  "items": [
+    {
+      "id": "r123",
+      "title": "Q4 AI Market Analysis",
+      "category": "Technology",
+      "tags": ["AI", "Startups"],
+      "published_at": "2026-01-15T10:00:00+00:00",
+      "score": 42.5,
+      "reason": "Because you engage with Technology content and tags you follow (AI, Startups)",
+      "signals": {
+        "category_match": 15.2,
+        "tag_match": 12.8,
+        "recency_boost": 8.3,
+        "popularity": 2.1
+      },
+      "why_it_matters": "AI advancement accelerates regulatory pressure on tech platforms."
+    }
+  ]
+}
+```
+
+### `GET /api/reports`
+
+Returns all available reports (no personalization).
+
+### `GET /api/users`
+
+Returns all users with their profile information.
+
+---
+
+## Architecture
+
+### Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **API** | FastAPI 0.115.5 | REST endpoints, auto-docs, async support |
+| **Database** | SQLite | Lightweight, serverless persistence |
+| **AI** | Google Gemini | Impact summary generation |
+| **Deployment** | Vercel | Serverless hosting |
+| **Language** | Python 3.9+ | Core implementation |
+
+## Future Improvements
+
 - Add rate limiting for feed endpoints.
 - Add background job to prefill/refresh AI summaries and to age out stale cache rows.
 - Auto-tagging and tag filters: extract tags from report content, persist them on reports, expose available tags, and let users filter feeds by desired tags to sharpen relevance.
