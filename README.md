@@ -201,3 +201,9 @@ Returns all users with their profile information.
 - Add rate limiting for feed endpoints.
 - Add background job to prefill/refresh AI summaries and to age out stale cache rows.
 - Auto-tagging and tag filters: extract tags from report content, persist them on reports, expose available tags, and let users filter feeds by desired tags to sharpen relevance.
+- Embedding-based rerank (real or mocked) to blend semantic similarity with the existing signal/recency score.
+
+### Using embeddings to enhance ranking
+- Where AI fits: compute a sentence embedding for each report title/summary plus a user-interest embedding (from focus tags + top signals). During feed build, merge the semantic similarity score with the existing multi-signal score (e.g., weighted sum or rerank top-N).
+- Latency / cost considerations: batch or precompute report embeddings; cache user embeddings; cap rerank to top-N (e.g., 100) to avoid per-request model calls.
+- Caching strategy: store report embeddings in SQLite (new table) or a vector store; store user embeddings keyed by user_id and regenerate when engagements change; memoize similarity results for stable user/report pairs when feasible; fall back to mocked vectors in local/dev to avoid API costs.
